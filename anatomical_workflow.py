@@ -1,9 +1,4 @@
 '''
-General information on the workflow
-
-'''
-
-'''
 export PATH=/data/u_steinj_software/conda/envs/preprocessing/bin/:$PATH
 SCWRAP afni latest
 SCWRAP freesurfer latest
@@ -103,7 +98,7 @@ class anatomical():
         return obj
     
     def createOutputDirs(self):
-        ''' create necessary output directories if not already present'''
+        ''' create the necessary output directories'''
         os.makedirs(self.baseDir, exist_ok=True)
         os.makedirs(self.derivativesDir, exist_ok=True)
         os.makedirs(self.catPath, exist_ok=True)
@@ -135,6 +130,18 @@ class anatomical():
         self.save()
 
     def useMPRAGEise(self):
+        '''
+        use MPRAGEISE module to prepare MP2RAGE image
+
+        input:
+        self.inv2Path: path to inv2 image of mp2rage
+        self.uniPath: path to uni image of mp2rage
+
+        output:
+        self.mprageised: path to anatomical image used for recon-all
+        '''
+
+        print('=== running MPRAGEISE ===')
 
         self.cleanEntry("mprageised") 
 
@@ -153,8 +160,13 @@ class anatomical():
         self.save()
 
     def runautorecon1(self):
-
         #TODO: check -cm flag (does it do anything in addition to -hires?)
+
+        '''
+        runs autorecon 1 on mprageised image
+        '''
+
+        print('=== running autorecon 1 ===')
 
         os.environ["SUBJECTS_DIR"] = self.freesurfPath
 
@@ -168,7 +180,18 @@ class anatomical():
             " -parallel")
 
     def meow(self):
+        '''
+        runs external MATLAB script for using CAT12 for high quality segmentation
 
+        input:
+        self.mprageised: mprageised image
+
+        output:
+        self.cat_wm: path to cat12 white matter mask
+        self.cat_gm: path to cat12 grey matter mask
+        '''
+
+        print('=== running cat12 segmentation ===')
 
         self.cleanEntry("cat_wm") 
         self.cleanEntry("cat_gm") 
@@ -195,6 +218,16 @@ class anatomical():
 
     def createMask(self):
         # TODO: check: gdc file from scanner --> used by Denis for gradient distortion correction
+
+        '''
+        creates brain mask from cat12 white and grey matter
+
+        output:
+        self.cat_mask: cat12 brain mask from wm and gm
+        self.cat_brain: cat12 mask applied to mprageised
+        '''
+
+        print('=== creating cat mask ===')
 
         self.cleanEntry("cat_mask") 
         self.cleanEntry("cat_brain") 
@@ -229,6 +262,13 @@ class anatomical():
 
     def transformNapplyMask(self):
 
+        '''
+        transform cat mask to orig.mgz using neares neighbor interpolation and apply mask to autorecon1 T1 image & add
+        the files where Freesurfer expects them to be
+        '''
+
+        print('=== transforming and applying cat mask ===')
+
         transmask = freesurfer.ApplyVolTransform()
         transmask.inputs.source_file = self.cat_mask
         transmask.inputs.target_file = os.path.join(self.freesurfPath, f'sub-{self.subjectID}', 'mri', 'orig.mgz')
@@ -249,6 +289,12 @@ class anatomical():
 
     def runautorecon2N3(self):
 
+        '''
+        run autorecon 2 and 3
+        '''
+
+        print('=== running autorecon 2 and 3 ===')
+
         with open(os.path.join(self.catPath, 'mprageise_out', 'expert.opts'), 'w') as text_file:
             text_file.write('mris_inflate -n 100\n')
 
@@ -265,6 +311,10 @@ class anatomical():
 
     def fsBrain2Nii(self):
 
+        '''
+        convert Freesurfer output brain to nifti
+        '''
+
         self.cleanEntry("fs_brain") 
 
         os.system(f'sc freesurfer latest mri_convert {self.freesurfPath}/sub-{self.subjectID}/mri/brain.mgz {self.freesurfPath}/sub-{self.subjectID}/mri/fs_brain.nii.gz')  
@@ -277,11 +327,10 @@ class anatomical():
         credit: https://github.com/ofgulban/LAYNII_extras/blob/38e607edbd6601b5893e519af3f791059fbe190d/demo-freesurfer_segmentation_to_rim/freesurfer_segmentation_to_rim.py 
 
         input:
-        freesurfAseg = path to freesurger aseg.mgz
-        freesurfPath = path to freesurfer output directory
+        self.freesurfPath: path to freesurfer output directory
 
         output:
-        rimAnatNii = path to created rim in anatomical space
+        self.rim_anat: path to created rim in anatomical space
         '''
 
         print("==== Creating rim ===")
@@ -349,11 +398,12 @@ class anatomical():
         function to upsample rim for smoother layer estimation
 
         input:
-        rimAnatNii = rim in anatomical space
-        factor = upscaling factor (default = 5)
-        method = interpolation method (default = 0, linear)
+        self.rim_anat: rim in anatomical space
+        factor: upscaling factor (default = 5)
+        method: interpolation method (default = 0, linear)
 
-        output: rimUpsampledAnat = path to upsampled rim in anatomical space
+        output: 
+        self.rim_anat_upsampled = path to upsampled rim in anatomical space
         '''
     
         print("==== Upsampling rim ===")
@@ -441,11 +491,11 @@ class anatomical():
         '''uses LayNii to create N layers from rim files
 
         input:
-        - rimUpsampledAnat: upsampled rim file in anatomical space
-        - N = number of layers (default = 3)
+        - self.rim_anat_upsampled: upsampled rim file in anatomical space
+        - N: number of layers (default = 3)
 
         output:
-        - layersUpsampled = path to upsampled layers file
+        - self.layers_anat_upsampled = path to upsampled layers file
         '''
 
         print("==== Creating layers ===")
@@ -459,6 +509,16 @@ class anatomical():
         
     def mni2anat(self, mni_idx):
 
+        '''
+        compute transforms between different MNI templated and anatomical
+
+        input:
+        mni_idx: mni index (0-2) indicating which template
+
+        output:
+        self.mni2anat_{mnix}_ + different ants outputs
+        '''
+
         self.cleanEntry("fs_brain_bin")
 
         os.system(f'mkdir {self.derivativesDir}/mni2anat')
@@ -466,6 +526,8 @@ class anatomical():
 
         template = f'{self.mniPath}/{self.mnis[mni_idx]}.nii.gz'
         mnix = self.mnis[mni_idx]
+
+        print(f'=== registering {mnix} to anat ===')
 
         self.cleanEntry(f"{mnix}_2_anat_warped")
         self.cleanEntry(f"{mnix}_2_anat_inv_warped")
@@ -515,6 +577,16 @@ class anatomical():
         self.save()
 
     def rois2Anat(self,roi): 
+
+        '''
+        register rois from MNI to anatomical space
+
+        input:
+        - roi: roi name
+
+        output:
+        - {roi}_2_anat: path to roi in anatomical space
+        '''
 
         print(f'=== registering {roi} to anat ===')
 
@@ -573,5 +645,5 @@ class anatomical():
             " -t " + f"{self.derivativesDir}/mni2anat/mni2anat_{mnix}_0GenericAffine.mat" + \
             " -o " + f"{self.derivativesDir}/mni2anat/{roi}_anat.nii.gz")
 
-        roi_func = self.addFile(f"{roi}_2_anat_", f'{self.derivativesDir}/mni2anat/{roi}_anat.nii.gz')
+        roi_func = self.addFile(f"{roi}_2_anat", f'{self.derivativesDir}/mni2anat/{roi}_anat.nii.gz')
         self.save() 

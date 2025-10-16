@@ -1,3 +1,10 @@
+'''
+export PATH=/data/u_steinj_software/conda/envs/preprocessing/bin/:$PATH
+SCWRAP afni latest
+SCWRAP freesurfer latest
+C3D
+'''
+
 import os
 import subprocess
 import glob
@@ -17,13 +24,6 @@ from nipype.interfaces import afni
 from nipype.interfaces import freesurfer
 from nipype.interfaces.freesurfer import BBRegister
 from nipype.interfaces.c3 import C3dAffineTool
-
-'''
-export PATH=/data/u_steinj_software/conda/envs/preprocessing/bin/:$PATH
-SCWRAP afni latest
-SCWRAP freesurfer latest
-C3D
-'''
 
 class functional():
 
@@ -89,29 +89,38 @@ class functional():
 
     @classmethod
     def load(cls, filename):
+        '''load'''
         with open(filename, "rb") as f:
             obj = pickle.load(f)
         return obj
     
     def createOutputDirs(self):
-    
+        '''
+        create the necessary output directories
+        '''    
         os.makedirs(self.funcDir, exist_ok=True)
         os.makedirs(self.stcDir, exist_ok=True)
         os.makedirs(self.realDir, exist_ok=True)
         os.makedirs(self.registerDir, exist_ok=True)
     
     def addFile(self, name, path):
-
+        '''
+        add file to pickle
+        '''
         setattr(self, name, path) 
         self.save()
 
     def save(self):
-
+        '''
+        save pickle
+        '''
         with open(self.pklFile, "wb") as f:
             pickle.dump(self, f)
 
     def cleanEntry(self, key, delete_file=True):
-
+        '''
+        remove entry from pickle
+        '''
         if not hasattr(self, key):
             print(f"[INFO] No attribute '{key}' found — nothing to clean.")
             return
@@ -132,10 +141,10 @@ class functional():
         function to write out slice timing from json file and slice time correct
 
         necessary input: 
-        self.bold = path to bold image
-        self.bold_json = path to json sidecar
+        self.bold: path to bold image
+        self.bold_json: path to json sidecar
 
-        output: self.stcFile = path to slice time corrected bold file
+        output: self.stcFile: path to slice time corrected bold file
         '''
         
         print("==== Running slice time correction ===")
@@ -166,15 +175,16 @@ class functional():
         function to compute the volume with the lowest fraction of outliers and realign
         to this volume
 
-        input: sctFile = path to slice time corrected bold timeseries
+        input: 
+        self.ctFile: path to slice time corrected bold timeseries
         
         output: 
-        realFile = path to realigned bold timeseries
-        movementPars = path to txt file containing volume-wise outlier fractions
-        minInd: index of volume with the lowest proportion of outliers
+        self.real_bold: path to realigned bold timeseries
+        self.motion_pars: path to txt file containing volume-wise outlier fractions
         '''
 
         print("==== Running realignment ===")
+
         self.cleanEntry("real_bold") 
         self.cleanEntry("motion_params") 
 
@@ -223,7 +233,8 @@ class functional():
         '''
         plot movement parameters (translations and rotations along 3 axes)
 
-        input: movementPars = path to txt file containing movement parameters
+        input: s
+        self.motion_pars: path to txt file containing movement parameters
         '''
 
         os.system(f'sc afni latest 1dplot {self.motion_params}') 
@@ -232,9 +243,15 @@ class functional():
         '''
         function to create average bold image from bold time series for registration
 
-        input: realFile = path to realigned bold timeseries
-        output: boldAvg = path to averaged bold image
+        input: 
+        self.real_bold: path to realigned bold timeseries
+
+        output: 
+        self.mean_bold: path to averaged bold image
         '''
+
+        print("==== Averaging BOLD ===")
+
         self.cleanEntry("mean_bold") 
 
         os.system(f'3dTstat -mean -prefix {self.registerDir}/mean_bold_ref.nii.gz {self.realDir}/realigned_bold.nii.gz')
@@ -250,8 +267,8 @@ class functional():
         --> in this version and init.txt is needed (created by manual initialization in ITKSnap)
 
         input:
-        boldAvg = path to averaged bold image
-        mask = mean_bold_ref or manual_audit --> register full brain or focus on manual mask created around auditory cortex
+        self.mean_bold: path to averaged bold image
+        anat: object of class anatomical
         '''
         print("==== Running registration using ANTs only ===") 
 
@@ -320,6 +337,13 @@ class functional():
         '''   
 
     def registerAnat2FuncBBRegAnts(self, anat):
+        '''
+        alternative registration: use bbreg to compute initial transfor, then run ants SyN
+
+        input
+        self.mean_bold: mean bold time series used for registration
+        anat: object of class anatomical
+        '''
 
         print("==== Running registration using Freesurfer and ANTs ===") 
 
@@ -392,7 +416,13 @@ class functional():
         '''
         function to apply computed registration parameters/warp field
 
-        input: prefix = prefix for output file
+        input: 
+        anat: object of class anatomical
+        prefix: prefix for output file
+        method: ants or fs_ants (depending on which transform to apply)
+
+        output:
+        self.anat_2_bold_{method} = anatomical transformed to bold
         '''
 
         print("==== Running registration: applying transformation ===")
@@ -418,11 +448,11 @@ class functional():
         function to upsample boldref to aid registration between upsampled layers and bold
 
         input: 
-        factor = upsampling factor
-        method = interpolation method
+        factor: upsampling factor (default = 5)
+        method: interpolation method (default = 3['l'])
 
         output:
-        boldRefUpsampled = path to upsampled bold average
+        self.upsampled_mean_bold: path to upsampled bold average
         '''
 
         print("==== Upsampling boldref ===")
@@ -449,12 +479,13 @@ class functional():
         registers layers to upsampled bold average by applying the transforms computed before
 
         input:
-        - layersUpsampled: path to layers file
-        - prefix_trans: prefix chosen previously for transformation files
+        - anat.layers_anat_upsampled: path to layers file
+        - prefix_trans: prefix chosen previously for transformation files 'anat2func'
         - prefix_out: output filename
+        - method: ants or fs_ants
 
         output:
-        - layersFunc: path to upsampled layers in functional space
+        - self.layers_2_func_{method}: path to upsampled layers in functional space
         '''
 
         print("==== Register layers ===")
@@ -479,16 +510,18 @@ class functional():
         downsample layers to native resolution of the functional images
 
         input:
-        - layersUpsampled: path to upsampled layers in functional space
-        - boldAvg: average bold reference image
+        - self.layers_2_func_{method}: path to upsampled layers in functional space
         - prefix_out: output file name
+        - method: ants or fs_ants
 
         output:
-        - layersDownsampled; path to file containing the downsampled layers
+        - self.layers_2_func_native_res; path to file containing the downsampled layers
 
         '''
 
-        print("==== downsample layers ===")
+        print("==== downsampling layers ===")
+
+        self.cleanEntry("layers_2_func_native_res") 
 
         layers_in = getattr(self, f"layers_2_func_{method}")
 
@@ -504,6 +537,18 @@ class functional():
         self.save()
 
     def registerRois2Func(self, anat, roi, reg_method, prefix):
+        '''
+        register anatomical ROIs from anatomical to functional space
+
+        input:
+        anat: object of class anatomical
+        roi = roi name
+        reg_method: ants or fs_ants
+        prefix: previously used prefix (anat2func)
+
+        output
+        self.{roi}_2_func_{method}: roi in functional space
+        '''
 
         print(f'=== registering {roi} to func ===')
 
@@ -530,12 +575,31 @@ class functional():
             " -t " + f"{self.registerDir}/{reg_method}/{prefix}_0GenericAffine.mat" + \
             " -o " + f"{self.registerDir}/{roi}_{reg_method}_func.nii.gz")
 
-        roi_func = self.addFile(f"{roi}_2_func_", f"{self.registerDir}/{roi}_{reg_method}_func.nii.gz")
+        roi_func = self.addFile(f"{roi}_2_func_{method}", f"{self.registerDir}/{roi}_{reg_method}_func.nii.gz")
         self.save()
 
     def getWmCsfRegs(self, anat, reg_method = 'ants', prefix = 'anat2func'):
+        '''
+        generate nuisance regressors for WM and CSF signal
 
-        print(f'=== registering WM and CSF to func ===')   
+        input:
+        anat: object of class anatomical
+        reg_method: ants or fs_ants
+        prefix: previously used prefix (anat2func)
+
+        output:
+        self.csf_func: path to csf mask in functional space
+        self.wm_func path to wm mask in functional space
+        self.wm_csf_regs: path to txt file containing regressors for mean wm/csf
+        '''
+
+        print('=== registering WM and CSF to func ===') 
+        
+        self.cleanEntry("csf_anat")
+        self.cleanEntry("wm_anat")
+        self.cleanEntry("csf_func")
+        self.cleanEntry("wm_func") 
+        self.cleanEntry("wm_csf_regs") 
 
         input = anat.fs_aseg_nii
 
