@@ -264,7 +264,6 @@ class functional():
         '''
         function to register preprocessed anatomical to functional image
         after bias field correcting the mean bold image and creating an automatic brain mask for bold
-        --> in this version and init.txt is needed (created by manual initialization in ITKSnap)
 
         input:
         self.mean_bold: path to averaged bold image
