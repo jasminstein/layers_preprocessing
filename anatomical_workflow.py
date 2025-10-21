@@ -42,15 +42,18 @@ class anatomical():
         self.laynii = os.path.join('/data/u_steinj_software/', 'laynii/laynii/')
         self.matlabScriptPath = Path(pkg_resources.files(layers_preprocessing))
 
-        self.mnis = ['mni_nlin_2009_c_sym_1mm','mni_nlin_2009_c_asym_1mm','mni_nlin_2009_b_sym_05mm']
+        self.mnis = ['mni_nlin_2009_c_sym_1mm','mni_nlin_2009_c_asym_1mm_brain','mni_nlin_2009_b_sym_05mm']
         self.mniPath = Path(pkg_resources.files(layers_preprocessing) / "roi" / "mni")
         self.juelich = Path(pkg_resources.files(layers_preprocessing) / "roi" / "juelich_auditory_cortex")
+        self.juelich_maxprob = Path(pkg_resources.files(layers_preprocessing) / "roi" / "juelich_maxprob")
         self.thalamus = Path(pkg_resources.files(layers_preprocessing) / "roi" / "thalamus_probseg_freesurfer_atlas")
-        self.subcortical = Path(pkg_resources.files(layers_preprocessing) / "roi" / "sitek_autitory_subcortical")
+        self.subcortical = Path(pkg_resources.files(layers_preprocessing) / "roi" / "sitek_auditory_subcortical")
 
         self.rois_juelich = ['Te-1.0_l', 'Te-1.1_l', 'Te-1.2_l','Te-2.1_l','Te-2.2_l', 'Te-1.0_r', 'Te-1.1_r', 'Te-1.2_r','Te-2.1_r','Te-2.2_r']
-        self.rois_thalamus = [['MGB_L', 'MGB-R', 'TRN-L','TRN-R'],[4, 3, 19, 39]] # NOTE: TRN labels wrong in atlas file by freesurfer?
-        self.rois_subcortical = ['CN_L', 'CN-R','SOC-L','SOC-R','IC-L','IC-R','MGB_L', 'MGB-R']
+        self.rois_juelich_maxprob_l = [['Te-1.0_l_max', 'Te-1.1_l_max', 'Te-1.2_l_max','Te-2.1_l_max','Te-2.2_l_max'], [10, 99, 161, 167, 204]] 
+        self.rois_juelich_maxprob_r = [['Te-1.0_r_max', 'Te-1.1_r_max', 'Te-1.2_r_max','Te-2.1_r_max','Te-2.2_r_max'], [10, 99, 161, 167, 204]] 
+        self.rois_thalamus = [['MGB_L', 'MGB_R', 'TRN_L','TRN_R'],[4, 3, 19, 39]] # NOTE: TRN labels wrong in atlas file by freesurfer?
+        self.rois_subcortical = ['CN_L_sit', 'CN_R_sit','SOC_L_sit','SOC_R_sit','IC_L_sit','IC_R_sit','MGB_L_sit', 'MGB_R_sit']
 
         self.derivativesDirPath = Path(self.derivativesDir)
         self.pklFile = self.derivativesDirPath / f'{self.subjectID}.anat_pkl'
@@ -58,8 +61,7 @@ class anatomical():
         if self.pklFile.exists():
             loaded = self.load(self.pklFile)
             for key, val in self.__dict__.items():
-                if key not in loaded.__dict__:
-                    loaded.__dict__[key] = val
+                loaded.__dict__[key] = val
             self.__dict__.update(loaded.__dict__)
             print(f"Loaded existing SubjectData from {self.pklFile}")
         else:
@@ -78,15 +80,18 @@ class anatomical():
             self.laynii = os.path.join('/data/u_steinj_software/', 'laynii/laynii/')
             self.matlabScriptPath = Path(pkg_resources.files(layers_preprocessing))
 
-            self.mnis = mnis = ['mni_nlin_2009_c_sym_1mm','mni_nlin_2009_c_asym_1mm','mni_nlin_2009_b_sym_05mm']
+            self.mnis = mnis = ['mni_nlin_2009_c_sym_1mm','mni_nlin_2009_c_asym_1mm_brain','mni_nlin_2009_b_sym_05mm']
             self.mniPath = Path(pkg_resources.files(layers_preprocessing) / "roi" / "mni")
             self.juelich = Path(pkg_resources.files(layers_preprocessing) / "roi" / "juelich_auditory_cortex")
+            self.juelich_maxprob = Path(pkg_resources.files(layers_preprocessing) / "roi" / "juelich_maxprob")
             self.thalamus = Path(pkg_resources.files(layers_preprocessing) / "roi" / "thalamus_probseg_freesurfer_atlas")
             self.subcortical = Path(pkg_resources.files(layers_preprocessing) / "roi" / "sitek_autitory_subcortical")
 
             self.rois_juelich = self.rois_juelich = ['Te-1.0_l', 'Te-1.1_l', 'Te-1.2_l','Te-2.1_l','Te-2.2_l', 'Te-1.0_r', 'Te-1.1_r', 'Te-1.2_r','Te-2.1_r','Te-2.2_r']
-            self.rois_thalamus = [['MGB_L', 'MGB-R', 'TRN-L','TRN-R'],[4, 3, 19, 39]] # NOTE: TRN labels wrong in atlas file by freesurfer?
-            self.rois_subcortical = ['CN_L', 'CN-R','SOC-L','SOC-R','IC-L','IC-R','MGB_L', 'MGB-R']
+            self.rois_juelich_maxprob_l = [['Te-1.0_l_max', 'Te-1.1_l_max', 'Te-1.2_l_max','Te-2.1_l_max','Te-2.2_l_max'], [10, 99, 161, 167, 204]] 
+            self.rois_juelich_maxprob_r = [['Te-1.0_r_max', 'Te-1.1_r_max', 'Te-1.2_r_max','Te-2.1_r_max','Te-2.2_r_max'], [10, 99, 161, 167, 204]] 
+            self.rois_thalamus = [['MGB_L', 'MGB_R', 'TRN_L','TRN_R'],[4, 3, 19, 39]] # NOTE: TRN labels wrong in atlas file by freesurfer?
+            self.rois_subcortical = ['CN_L_sit', 'CN_R_sit','SOC_L_sit','SOC_R_sit','IC_L_sit','IC_R_sit','MGB_L_sit', 'MGB_R_sit']
             
             print(f"Created new SubjectData for subject {subjectID}")
 
@@ -506,8 +511,38 @@ class anatomical():
 
         layers_upsampled = self.addFile("layers_anat_upsampled", f'{self.derivativesDir}/layers/aseg_rim_upsampled_layers_equidist.nii.gz')
         self.save()
+
+    def prepMni(self, mni_idx, ext = 'nii.gz'):
+        '''
+        get skull stripped mnis and brain masks to improve registration to fs_brain
+        '''
+
+        mnix = self.mnis[mni_idx]
+        template = f'{self.mniPath}/{self.mnis[mni_idx]}.{ext}'
+
+        self.cleanEntry(f'mni_brain_{mnix}')
+        self.cleanEntry(f'mni_brain_mask_{mnix}')
+
+        if mni_idx == 0:
+            os.system(f'sc fsl latest fslmaths {template} -mas {self.mniPath}/mni_nlin_2009_c_sym_1mm_brain_mask.nii.gz {self.mniPath}/{self.mnis[mni_idx]}_brain.{ext}')
+
+        elif mni_idx == 1:
+            done = True
+
+        elif mni_idx == 2: 
+            os.system(f'sc freesurfer latest mri_synthstrip -i {template} -o {self.mniPath}/{self.mnis[mni_idx]}_brain.{ext} --no-csf')
+            os.system(f'sc fsl latest fslmaths {self.mniPath}/{self.mnis[mni_idx]}_brain.{ext} -thr 0 -bin {self.mniPath}/{self.mnis[mni_idx]}_brain_mask.{ext}')
+
         
-    def mni2anat(self, mni_idx):
+        mni_brain = self.addFile(f'mni_brain_{mnix}', f'{self.mniPath}/{self.mnis[mni_idx]}_brain.{ext}')
+        self.save()
+
+        mni_brain = self.addFile(f'mni_brain_mask_{mnix}', f'{self.mniPath}/{self.mnis[mni_idx]}_brain_mask.nii.gz')
+        self.save()
+
+
+        
+    def mni2anat(self, mni_idx, ext = 'nii.gz'):
 
         '''
         compute transforms between different MNI templated and anatomical
@@ -524,7 +559,6 @@ class anatomical():
         os.system(f'mkdir {self.derivativesDir}/mni2anat')
         os.system("export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=8")
 
-        template = f'{self.mniPath}/{self.mnis[mni_idx]}.nii.gz'
         mnix = self.mnis[mni_idx]
 
         print(f'=== registering {mnix} to anat ===')
@@ -539,6 +573,23 @@ class anatomical():
 
         fs_brain_bin = self.addFile("fs_brain_bin", f'{self.freesurfPath}/sub-{self.subjectID}/mri/fs_brain_bin_mask.nii.gz')
         self.save()
+
+        template = f'{self.mniPath}/{self.mnis[mni_idx]}_brain.{ext}'
+        mask_mni = getattr(self, f'mni_brain_mask_{mnix}')
+
+        '''
+        os.system(
+            f"sc ants latest antsApplyTransforms "
+            f"-d 3 "
+            f"-i {template_pre} "
+            f"-r {self.fs_brain} "
+            f"-o {self.mniPath}/{mnix}_reoriented.{ext} "
+            f"--transform identity"
+        )
+
+        template = f'{self.mniPath}/{self.mnis[mni_idx]}_reoriented.{ext}'
+
+        '''
 
         os.system("sc ants latest antsRegistration" + \
             " --verbose 1" + \
@@ -563,7 +614,7 @@ class anatomical():
             " --convergence [500x100,1e-6,10]" + \
             " --shrink-factors 2x1" + \
             " --smoothing-sigmas 1x0vox" + \
-            " -x " + f'{self.fs_brain_bin}')    
+            " -x " + f'[{self.fs_brain_bin}, {mask_mni}]')    
 
         warped = self.addFile(f"{mnix}_2_anat_warped", f'{self.derivativesDir}/mni2anat/mni2anat_{mnix}_Warped.nii.gz')
         self.save()
@@ -575,6 +626,25 @@ class anatomical():
         self.save()
         genericAffine = self.addFile(f"{mnix}_2_anat_0genericaffine", f'{self.derivativesDir}/mni2anat/mni2anat_{mnix}_0GenericAffine.mat')
         self.save()
+
+    def applyMni2Anat(self, mni_idx, ext):
+
+        mnix = self.mnis[mni_idx]
+
+        #template = f'{self.mniPath}/{self.mnis[mni_idx]}_reoriented.{ext}'
+        template = f'{self.mniPath}/{self.mnis[mni_idx]}.{ext}'
+
+        os.system("sc ants latest antsApplyTransforms" + \
+            " --interpolation BSpline[5]" + \
+            " -d 3" + \
+            " -i " + f"{template}" + \
+            " -r " + f"{self.fs_brain}" + \
+            " -t " + f"{self.derivativesDir}/mni2anat/mni2anat_{mnix}_1Warp.nii.gz" + \
+            " -t " + f"{self.derivativesDir}/mni2anat/mni2anat_{mnix}_0GenericAffine.mat" + \
+            " -o " + f"{self.derivativesDir}/mni2anat/{mnix}_anat.nii.gz")
+
+        mni_func = self.addFile(f"{mnix}_2_anat", f'{self.derivativesDir}/mni2anat/{mnix}_anat.nii.gz')
+        self.save() 
 
     def rois2Anat(self,roi): 
 
@@ -590,7 +660,7 @@ class anatomical():
 
         print(f'=== registering {roi} to anat ===')
 
-        self.cleanEntry(f"roi_2_func_{roi}") 
+        self.cleanEntry(f"{roi}_2_anat") 
         
         if roi in self.rois_thalamus[0]:
             mni_idx = 0
@@ -623,18 +693,54 @@ class anatomical():
             mnix = self.mnis[mni_idx]
             method = 'NearestNeighbor'
 
-            index_roi = np.where(self.rois_subcortical == roi)[0][0]
-            index_vol = self.rois_subcortical[index_roi]
+            rois_subcortical_flat = np.array(self.rois_subcortical).flatten()
+            index_roi = np.where(rois_subcortical_flat == roi)[0][0]
 
-            atlas = nib.load(os.path.join(self.subcortical, 'sub-invivo_mni_rois.nii.gz'))
+            atlas = nib.load(os.path.join(self.subcortical, 'sub-invivo_mni_rois_resampled.nii.gz'))
             atlas_data = atlas.get_fdata()
 
-            vol = index_vol
-            roi_data = (atlas_data == label_value).astype(np.uint8)
+            roi_data = (atlas_data == index_roi + 1).astype(np.uint8)
             roi_img = nib.Nifti1Image(roi_data, atlas.affine, atlas.header)
             nib.save(roi_img, f'{self.subcortical}/{roi}.nii.gz')
 
             roi_path = f'{self.subcortical}/{roi}.nii.gz'
+
+        elif any(roi.lower() == r.lower() for r in self.rois_juelich_maxprob_l[0]):
+            mni_idx = 1
+            mnix = self.mnis[mni_idx]
+            method = 'NearestNeighbor'
+
+            rois_juel_flat = np.array(self.rois_juelich_maxprob_l).flatten()
+            index_roi = np.where(rois_juel_flat == roi)[0][0]
+            index_vol = self.rois_juelich_maxprob_l[1][index_roi]
+
+            atlas = nib.load(os.path.join(self.juelich_maxprob, 'JulichBrainAtlas_3.1_207areas_MPM_lh_MNI152.nii.gz'))
+            atlas_data = atlas.get_fdata()
+
+            roi_data = (atlas_data == index_vol).astype(np.uint8)
+            roi_img = nib.Nifti1Image(roi_data, atlas.affine, atlas.header)
+            nib.save(roi_img, f'{self.juelich_maxprob}/{roi}.nii.gz')
+
+            roi_path = f'{self.juelich_maxprob}/{roi}.nii.gz'
+
+        elif any(roi.lower() == r.lower() for r in self.rois_juelich_maxprob_r[0]):
+            mni_idx = 1
+            mnix = self.mnis[mni_idx]
+            method = 'NearestNeighbor'
+
+            rois_juel_flat = np.array(self.rois_juelich_maxprob_r).flatten()
+            index_roi = np.where(rois_juel_flat == roi)[0][0]
+            index_vol = self.rois_juelich_maxprob_r[1][index_roi]
+
+            atlas = nib.load(os.path.join(self.juelich_maxprob, 'JulichBrainAtlas_3.1_207areas_MPM_rh_MNI152.nii.gz'))
+            atlas_data = atlas.get_fdata()
+
+            roi_data = (atlas_data == index_vol).astype(np.uint8)
+            roi_img = nib.Nifti1Image(roi_data, atlas.affine, atlas.header)
+            nib.save(roi_img, f'{self.juelich_maxprob}/{roi}.nii.gz')
+
+            roi_path = f'{self.juelich_maxprob}/{roi}.nii.gz'
+
 
         os.system("sc ants latest antsApplyTransforms" + \
             " --interpolation " + f"{method}" + \

@@ -102,6 +102,8 @@ class functional():
         os.makedirs(self.stcDir, exist_ok=True)
         os.makedirs(self.realDir, exist_ok=True)
         os.makedirs(self.registerDir, exist_ok=True)
+        os.makedirs(f"{self.derivativesDir}/layers", exist_ok=True)
+        os.makedirs(f"{self.freesurfPath}/sub-{self.subjectID}/mri", exist_ok=True)
     
     def addFile(self, name, path):
         '''
@@ -356,7 +358,7 @@ class functional():
 
         os.system(f'mkdir {self.registerDir}/fs_ants')
 
-        os.environ["SUBJECTS_DIR"] = self.freesurfPath
+        os.environ["SUBJECTS_DIR"] = anat.freesurfPath
 
         bbreg = BBRegister()
         bbreg.inputs.subject_id = f'sub-{self.subjectID}'
@@ -550,21 +552,30 @@ class functional():
         '''
 
         print(f'=== registering {roi} to func ===')
-
-        self.cleanEntry(f"roi_2_func_{roi}") 
         
         if roi in anat.rois_thalamus[0]:
             method = 'Linear'
-            roi_path = getattr(anat, f"{roi}_2_anat_")
+            roi_path = getattr(anat, f"{roi}_2_anat")
 
         elif any(roi.lower() == r.lower() for r in anat.rois_juelich):
             method = 'Linear'
-            roi_path = getattr(anat, f"{roi}_2_anat_")
+            roi_path = getattr(anat, f"{roi}_2_anat")
 
         elif roi in anat.rois_subcortical:
             method = 'NearestNeighbor'
-            roi_path = getattr(anat, f"{roi}_2_anat_")
+            roi_path = getattr(anat, f"{roi}_2_anat")
 
+        elif any(roi.lower() == r.lower() for r in anat.rois_juelich_maxprob_l[0]):
+            method = 'NearestNeighbor'
+            roi_path = getattr(anat, f"{roi}_2_anat")
+            print(method)
+
+        elif any(roi.lower() == r.lower() for r in anat.rois_juelich_maxprob_r[0]):
+            method = 'NearestNeighbor'
+            roi_path = getattr(anat, f"{roi}_2_anat")
+
+        self.cleanEntry(f"{roi}_2_func_{method}") 
+        
         os.system("sc ants latest antsApplyTransforms" + \
             " --interpolation " + f"{method}" + \
             " -d 3" + \
@@ -657,6 +668,47 @@ class functional():
 
         roi_func = self.addFile(f"wm_csf_regs", f'{self.realDir}/wm_csf.txt')
         self.save()
+
+
+    def registerAudit2func(self, anat, reg_method = 'ants', prefix = 'anat2func'):
+        '''
+
+        '''
+
+        print('=== auditory rois to func ===') 
+        
+        os.system(f'sc freesurfer latest mri_convert {anat.freesurfPath}/sub-{self.subjectID}/mri/aparc.a2009s+aseg.mgz {self.freesurfPath}/sub-{self.subjectID}/mri/aparc_a2009s_aseg.mgz.nii.gz')  
+        fs_seg_full = self.addFile("aparc_a2009s_aseg", f'{self.freesurfPath}/sub-{self.subjectID}/mri/aparc_a2009s_aseg.mgz.nii.gz')
+        self.save()
+
+        audit_labels = [11133, 12133, 11136, 12136, 11135, 12135, 11134, 12134]
+
+        aseg = nib.load(self.aparc_a2009s_aseg)
+        aseg_data = aseg.get_fdata()
+
+        for roi in audit_labels:
+            mask = np.isin(aseg_data, roi)
+
+            nib.save(nib.Nifti1Image(mask.astype(np.uint8), aseg.affine),f'{self.freesurfPath}/sub-{self.subjectID}/mri/{roi}_mask.nii.gz')
+
+            roi_anat = self.addFile(f"{roi}_anat", f'{self.freesurfPath}/sub-{self.subjectID}/mri/{roi}_mask.nii.gz')
+            self.save()
+
+            roi_path = getattr(self, f"{roi}_anat")
+
+            os.system("sc ants latest antsApplyTransforms" + \
+                " --interpolation NearestNeighbor" + \
+                " -d 3" + \
+                " -i " + f"{roi_path}" + \
+                " -r " + f"{self.registerDir}/masked_n4_mean_bold_ref.nii.gz" + \
+                " -t " + f"{self.registerDir}/{reg_method}/{prefix}_1Warp.nii.gz" + \
+                " -t " + f"{self.registerDir}/{reg_method}/{prefix}_0GenericAffine.mat" + \
+                " -o " + f"{self.registerDir}/{roi}_{reg_method}_func.nii.gz")
+
+
+            roi_func = self.addFile(f"{roi}_func", f'{self.registerDir}/{roi}_{reg_method}_func.nii.gz')
+            self.save()
+        
 
 
      
