@@ -39,7 +39,7 @@ class anatomical():
         self.uniPath = f"{baseDir}/sub-{subjectID}/anat/sub-{subjectID}_task-{taskID}_acq-uni_T1w.nii.gz"
 
         self.mprageisePath = os.path.join('/data/u_steinj_software/', 'MPRAGEise-2.0/')
-        self.laynii = os.path.join('/data/u_steinj_software/', 'laynii/laynii/')
+        self.laynii = os.path.join('/data/u_steinj_software/', 'LayNii_v2.9.0')
         self.matlabScriptPath = Path(pkg_resources.files(layers_preprocessing))
 
         self.mnis = ['mni_nlin_2009_c_sym_1mm','mni_nlin_2009_c_asym_1mm_brain','mni_nlin_2009_b_sym_05mm']
@@ -77,7 +77,7 @@ class anatomical():
             self.uniPath = f"{baseDir}/sub-{subjectID}/anat/sub-{subjectID}_task-{taskID}_acq-uni_T1w.nii.gz"
 
             self.mprageisePath = os.path.join('/data/u_steinj_software/', 'MPRAGEise-2.0/')
-            self.laynii = os.path.join('/data/u_steinj_software/', 'laynii/laynii/')
+            self.laynii = os.path.join('/data/u_steinj_software/', 'LayNii_v2.9.0')
             self.matlabScriptPath = Path(pkg_resources.files(layers_preprocessing))
 
             self.mnis = mnis = ['mni_nlin_2009_c_sym_1mm','mni_nlin_2009_c_asym_1mm_brain','mni_nlin_2009_b_sym_05mm']
@@ -507,9 +507,9 @@ class anatomical():
 
         self.cleanEntry("layers_anat_upsampled") 
 
-        os.system(f"{self.laynii}/LN2_LAYERS -rim {self.rim_anat_upsampled} -nr_layers {N} -thickness -equal_counts")
+        os.system(f"{self.laynii}/LN2_LAYERS -rim {self.rim_anat_upsampled} -nr_layers {N} -thickness -equal_counts -output {self.derivativesDir}/layers/{N}_layers_upsampled_anat")
 
-        layers_upsampled = self.addFile("layers_anat_upsampled", f'{self.derivativesDir}/layers/aseg_rim_upsampled_layers_equidist.nii.gz')
+        layers_upsampled = self.addFile("layers_anat_upsampled", f'{self.derivativesDir}/layers/{N}_layers_upsampled_anat_layers_equidist.nii')
         self.save()
 
     def prepMni(self, mni_idx, ext = 'nii.gz'):
@@ -540,8 +540,7 @@ class anatomical():
         mni_brain = self.addFile(f'mni_brain_mask_{mnix}', f'{self.mniPath}/{self.mnis[mni_idx]}_brain_mask.nii.gz')
         self.save()
 
-
-        
+   
     def mni2anat(self, mni_idx, ext = 'nii.gz'):
 
         '''
@@ -595,7 +594,7 @@ class anatomical():
             " --verbose 1" + \
             " --dimensionality 3" + \
             " --float 1" + \
-            " --output " + f'[{self.derivativesDir}/mni2anat/mni2anat_{mnix}_,/{self.derivativesDir}/mni2anat/mni2anat_{mnix}_Warped.nii.gz, {self.derivativesDir}/mni2anat/mni2anat_{mnix}_InverseWarped.nii.gz]' + \
+            " --output " + f'[{self.derivativesDir}/mni2anat/mni2anat_{mnix}_,{self.derivativesDir}/mni2anat/mni2anat_{mnix}_Warped.nii.gz, {self.derivativesDir}/mni2anat/mni2anat_{mnix}_InverseWarped.nii.gz]' + \
             " --interpolation Linear" + \
             " --use-histogram-matching 0" + \
             " --winsorize-image-intensities [0.005,0.995]" + \

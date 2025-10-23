@@ -55,13 +55,15 @@ class functional():
         #self.freesurfAseg = f"{baseDir}/derivatives/sub-{subjectID}/freesurfer_out/mri/aseg.mgz"
         #self.freesurfRibbon = f"{baseDir}/derivatives/sub-{subjectID}/freesurfer_out/mri/ribbon.mgz"
 
-        #self.laynii = os.path.join('/data/u_steinj_software/', 'laynii/laynii/')
+        self.laynii = os.path.join('/data/u_steinj_software/', 'LayNii_v2.9.0')
 
         self.derivativesDirPath = Path(self.derivativesDir)
         self.pklFile = self.derivativesDirPath / f'{self.subjectID}.func_pkl'
 
         if self.pklFile.exists():
             loaded = self.load(self.pklFile)
+            for key, val in self.__dict__.items():
+                loaded.__dict__[key] = val
             self.__dict__.update(loaded.__dict__)
             print(f"Loaded existing SubjectData from {self.pklFile}")
         else:
@@ -85,7 +87,7 @@ class functional():
             #self.freesurfAseg = f"{baseDir}/derivatives/sub-{subjectID}/freesurfer_out/mri/aseg.mgz"
             #self.freesurfRibbon = f"{baseDir}/derivatives/sub-{subjectID}/freesurfer_out/mri/ribbon.mgz"
 
-            #self.laynii = os.path.join('/data/u_steinj_software/', 'laynii/laynii/')
+            self.laynii = os.path.join('/data/u_steinj_software/', 'laynii/LayNii_v2.9.0')
 
     @classmethod
     def load(cls, filename):
@@ -240,6 +242,32 @@ class functional():
         '''
 
         os.system(f'sc afni latest 1dplot {self.motion_params}') 
+
+    def getTsnr(self):
+
+        img = nib.load(self.real_bold)
+        data = img.get_fdata()
+
+        mean_img = np.mean(data, axis=-1)
+        std_img = np.std(data, axis=-1)
+
+        tsnr = np.divide(mean_img, std_img, out=np.zeros_like(mean_img), where=std_img != 0)
+        tsnr_img = nib.Nifti1Image(tsnr, affine=img.affine, header=img.header)
+
+        nib.save(tsnr_img, f'{self.realDir}/tsnr.nii.gz')
+        
+        tsnr_file = self.addFile("tsnr_real_bold", f'{self.realDir}/tsnr.nii.gz')
+        self.save()
+
+    def getLayNiiQc(self):
+
+        os.system(f'{self.laynii}/LN_SKEW -input {self.real_bold} -output {self.realDir}/layni_qc.nii.gz')
+
+    def getLayNiiNoiseKernel(self):
+
+        os.system(f'{self.laynii}/LN_NOISE_KERNEL -input {self.real_bold} -kernel_size 11 -output {self.realDir}/layni_noise_kernel.nii.gz')
+        qc_file = self.addFile(f'qc_noise_kernel', f'{self.realDir}/layni_noise_kernel.nii.gz')
+        self.save()
 
     def averageBold(self):
         '''
@@ -575,7 +603,7 @@ class functional():
             roi_path = getattr(anat, f"{roi}_2_anat")
 
         self.cleanEntry(f"{roi}_2_func_{method}") 
-        
+
         os.system("sc ants latest antsApplyTransforms" + \
             " --interpolation " + f"{method}" + \
             " -d 3" + \
@@ -660,6 +688,7 @@ class functional():
 
         wm = nib.load(self.csf_func).get_fdata() > 0
         csf = nib.load(self.wm_func).get_fdata() > 0   
+        
         wm_nuis = funcy_data[wm].mean(axis=0)
         csf_nuis = funcy_data[csf].mean(axis=0)
 
@@ -709,7 +738,6 @@ class functional():
             roi_func = self.addFile(f"{roi}_func", f'{self.registerDir}/{roi}_{reg_method}_func.nii.gz')
             self.save()
         
-
 
      
 
