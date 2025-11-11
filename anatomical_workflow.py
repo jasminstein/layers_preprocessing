@@ -1,7 +1,7 @@
 '''
 export PATH=/data/u_steinj_software/conda/envs/preprocessing/bin/:$PATH
-SCWRAP afni latest
-SCWRAP freesurfer latest
+SCWRAP afni latest (scwrap only until 24.3.08)
+SCWRAP freesurfer latest (scwrap only until 7.4.1)
 SPM MATLAB --version 9.13 (MATLAB 2022b to run CAT12)
 unset LD_PRELOAD (if runnning on remote Linux to disable graphics warnings)
 '''
@@ -517,6 +517,8 @@ class anatomical():
         get skull stripped mnis and brain masks to improve registration to fs_brain
         '''
 
+        print("==== preppring MNI ===")
+
         mnix = self.mnis[mni_idx]
         template = f'{self.mniPath}/{self.mnis[mni_idx]}.{ext}'
 
@@ -613,10 +615,14 @@ class anatomical():
             " --convergence [500x100,1e-6,10]" + \
             " --shrink-factors 2x1" + \
             " --smoothing-sigmas 1x0vox" + \
-            " -x " + f'[{self.fs_brain_bin}, {mask_mni}]')    
+            " -x " + f'[{self.fs_brain_bin}, {mask_mni}]')   
 
         warped = self.addFile(f"{mnix}_2_anat_warped", f'{self.derivativesDir}/mni2anat/mni2anat_{mnix}_Warped.nii.gz')
         self.save()
+
+        warped = getattr(self, f'{mnix}_2_anat_warped')
+        os.system(f'sc fsl latest fslcpgeom {self.fs_brain} {warped}') 
+
         inverseWarped = self.addFile(f"{mnix}_2_anat_inv_warped", f'{self.derivativesDir}/mni2anat/mni2anat_{mnix}_InverseWarped.nii.gz')
         self.save()
         warp1 = self.addFile(f"{mnix}_2_anat_1warp", f'{self.derivativesDir}/mni2anat/mni2anat_{mnix}_1Warp.nii.gz')
@@ -628,7 +634,11 @@ class anatomical():
 
     def applyMni2Anat(self, mni_idx, ext):
 
+        '''applying MNI registration'''
+        
         mnix = self.mnis[mni_idx]
+
+        self.cleanEntry(f"{mnix}_2_anat")
 
         #template = f'{self.mniPath}/{self.mnis[mni_idx]}_reoriented.{ext}'
         template = f'{self.mniPath}/{self.mnis[mni_idx]}.{ext}'

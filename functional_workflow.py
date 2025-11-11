@@ -1,7 +1,7 @@
 '''
 export PATH=/data/u_steinj_software/conda/envs/preprocessing/bin/:$PATH
-SCWRAP afni latest
-SCWRAP freesurfer latest
+SCWRAP afni latest (scwrap only until 24.3.08)
+SCWRAP freesurfer latest (scwrap only until 7.4.1)
 C3D
 '''
 
@@ -209,13 +209,13 @@ class functional():
 
         values = np.array(values)
         minInd = np.argmin(values)
-        print(f'file index for realignment: {minInd}')    
+        print(f'file index for realignment: {minInd}')   
 
         os.system("sc afni latest 3dvolreg" + \
             " -prefix " + os.path.join(f'{self.realDir}','realigned_bold.nii.gz') + \
             " -Fourier" + \
             " -float" + \
-            " -base " + os.path.join(f'{self.stc_bold}')+f'\"[${minInd}]\"' + \
+            " -base " + f"{self.stc_bold}'[{minInd}]'" + \
             " -dfile "  + os.path.join(f'{self.realDir}','motion.par') + \
             " -1Dfile " + os.path.join(f'{self.realDir}','motion.1D') + \
             " -maxdisp1D " + os.path.join(f'{self.realDir}','max_disp.1D') + \
@@ -245,8 +245,12 @@ class functional():
 
     def getTsnr(self):
 
+        '''compute tSNR manually'''
+
+        self.cleanEntry("tsnr_real_bold")
+
         img = nib.load(self.real_bold)
-        data = img.get_fdata()
+        data = img.get_fdata(dtype=np.float32)
 
         mean_img = np.mean(data, axis=-1)
         std_img = np.std(data, axis=-1)
@@ -259,14 +263,59 @@ class functional():
         tsnr_file = self.addFile("tsnr_real_bold", f'{self.realDir}/tsnr.nii.gz')
         self.save()
 
+    def getTsnrN(self, N):
+
+        '''get tsnr from first N scans (no stimulation in auditory localizer)'''
+
+        self.cleanEntry("tsnr_real_bold_N")
+
+        img = nib.load(self.real_bold)
+        data = img.get_fdata(dtype=np.float32)
+
+        data = data[..., :N]
+
+        mean_img = np.mean(data, axis=-1)
+        std_img = np.std(data, axis=-1)
+
+        tsnr = np.divide(mean_img, std_img, out=np.zeros_like(mean_img), where=std_img != 0)
+        tsnr_img = nib.Nifti1Image(tsnr, affine=img.affine, header=img.header)
+
+        nib.save(tsnr_img, f'{self.realDir}/tsnr_{N}.nii.gz')
+        
+        tsnr_file = self.addFile("tsnr_real_bold_N", f'{self.realDir}/tsnr_{N}.nii.gz')
+        self.save()
+
+    def getTsnrDiff(self,N):
+
+        '''compute tsnr difference between full sequence and only first N scans'''
+
+        img1 = nib.load(self.tsnr_real_bold)
+        data1 = img1.get_fdata(dtype=np.float32)
+
+        img2 = nib.load(self.tsnr_real_bold_N)
+        data2 = img2.get_fdata(dtype=np.float32)
+
+        diff = data2-data1
+        diff_img = nib.Nifti1Image(diff, affine=img1.affine, header=img1.header)
+
+
+        nib.save(diff_img, f'{self.realDir}/tsnr_diff.nii.gz')
+
+
     def getLayNiiQc(self):
+
+        '''write QC measures from laynii'''
 
         os.system(f'{self.laynii}/LN_SKEW -input {self.real_bold} -output {self.realDir}/layni_qc.nii.gz')
 
     def getLayNiiNoiseKernel(self):
 
+        '''write noise kernel from laynii'''
+
+        self.cleanEntry("qc_noise_kernel")
+
         os.system(f'{self.laynii}/LN_NOISE_KERNEL -input {self.real_bold} -kernel_size 11 -output {self.realDir}/layni_noise_kernel.nii.gz')
-        qc_file = self.addFile(f'qc_noise_kernel', f'{self.realDir}/layni_noise_kernel.nii.gz')
+        qc_file = self.addFile('qc_noise_kernel', f'{self.realDir}/layni_noise_kernel.nii.gz')
         self.save()
 
     def averageBold(self):
@@ -335,6 +384,9 @@ class functional():
             " --shrink-factors 2x1" + \
             " --smoothing-sigmas 1x0vox" + \
             " -x " + f"{self.registerDir}/mean_bold_ref_mask.nii.gz")   
+
+        # TODO: use next time --> needs fix as warped is not defined
+        #os.system(f'sc fsl latest fslcpgeom {self.registerDir}/masked_n4_mean_bold_ref.nii.gz {warped} {self.registerDir}/ants/anat2func_Warped.nii.gz')     
 
         '''
         NOTE Parameters Denis (test at some point whether this makes a difference TODO):
@@ -616,6 +668,23 @@ class functional():
         roi_func = self.addFile(f"{roi}_2_func_{method}", f"{self.registerDir}/{roi}_{reg_method}_func.nii.gz")
         self.save()
 
+    def registerBrainMask(self, anat, reg_method = 'ants', prefix = 'anat2func'):
+        
+        self.cleanEntry("catmask_func")
+
+        os.system("sc ants latest antsApplyTransforms" + \
+            " --interpolation NearestNeighbor" + \
+            " -d 3" + \
+            " -i " + f"{anat.cat_mask}" + \
+            " -r " + f"{self.registerDir}/masked_n4_mean_bold_ref.nii.gz" + \
+            " -t " + f"{self.registerDir}/{reg_method}/{prefix}_1Warp.nii.gz" + \
+            " -t " + f"{self.registerDir}/{reg_method}/{prefix}_0GenericAffine.mat" + \
+            " -o " + f"{self.registerDir}/catmask_{reg_method}_func.nii.gz")
+
+        brain_func = self.addFile(f"catmask_func", f'{self.registerDir}/catmask_{reg_method}_func.nii.gz')
+        self.save()
+
+
     def getWmCsfRegs(self, anat, reg_method = 'ants', prefix = 'anat2func'):
         '''
         generate nuisance regressors for WM and CSF signal
@@ -701,10 +770,12 @@ class functional():
 
     def registerAudit2func(self, anat, reg_method = 'ants', prefix = 'anat2func'):
         '''
-
+        register Freesurfer auditory labels to func
         '''
 
         print('=== auditory rois to func ===') 
+
+        self.cleanEntry("aparc_a2009s_aseg")
         
         os.system(f'sc freesurfer latest mri_convert {anat.freesurfPath}/sub-{self.subjectID}/mri/aparc.a2009s+aseg.mgz {self.freesurfPath}/sub-{self.subjectID}/mri/aparc_a2009s_aseg.mgz.nii.gz')  
         fs_seg_full = self.addFile("aparc_a2009s_aseg", f'{self.freesurfPath}/sub-{self.subjectID}/mri/aparc_a2009s_aseg.mgz.nii.gz')
